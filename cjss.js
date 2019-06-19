@@ -19,22 +19,27 @@
    * @returns {CSSRuleList} The rules of this stylesheet.
    */
   function ruleList(styleSheet) {
-    return styleSheet.rules || styleSheet.cssRules;
+    try {
+      return styleSheet.rules || styleSheet.cssRules;
+    } catch (e) {
+      if (e.name !== "SecurityError") throw e;
+      return undefined;
+    }
   }
 
   /**
-   * Runs CJSS rules - CSS rules with the special properties `--html`,
-   * `--js` and `--data`.
+   * Run all the CJSS rules in a stylesheet.
    * 
-   * @param {CSSRuleList} rules An array-like object of CJSS rules.
+   * This will parse and execute properties `--html`, `--js` and `--data`.
+   * 
+   * @param {CSSStyleSheet} styleSheet The stylesheet to parse for CJSS rules.
    **/
-  function cjss(rules) {
-    for (const rule of rules) {
-
+  function cjss(styleSheet) {
+    const rules = ruleList(styleSheet);
+    for (const rule of rules || []) {
       // Handle imports recursively
       if (rule instanceof CSSImportRule) {
-        const importedRules = ruleList(rule.styleSheet);
-        cjss(importedRules);
+        cjss(rule.styleSheet);
       }
 
       else if (rule instanceof CSSStyleRule) {
@@ -46,7 +51,6 @@
         const rawData = getPureProperty(rule, '--data');
 
         const data = rawData ? (0, eval)(`({ ${rawData} })`) : {};
-
         if (html) {
           const renderHTML = new Function('yield,data',
             `return \`${html}\`;`);
@@ -70,9 +74,8 @@
    * Plug every stylesheet in the document into the cjss function.
    */
   function initialize() {
-    for (const sheet of document.styleSheets) {
-      const rules = ruleList(sheet);
-      if (rules) cjss(rules);
+    for (const styleSheet of document.styleSheets) {
+      cjss(styleSheet);
     }
   }
 
