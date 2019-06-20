@@ -39,7 +39,12 @@
     for (const rule of rules || []) {
       // Handle imports recursively
       if (rule instanceof CSSImportRule) {
-        cjss(rule.styleSheet);
+        try {
+          const importedRules = rule.styleSheet.cssRules;
+          if (importedRules) cjss(importedRules);
+        } catch (e) {
+          if (e.name !== "SecurityError") throw e;
+        }
       }
 
       else if (rule instanceof CSSStyleRule) {
